@@ -1,4 +1,4 @@
-
+#include <iostream>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <cmath>
@@ -8,7 +8,7 @@ using PointCloud  = std::vector<cv::Point2f>;
 int neighbor_size = 3; //邻居数量
 float neibor_dist_min_threshold = 0.05;
 float neibor_range_min_threshold = 0.05;
-float density_threshold = 0.1;
+float density_threshold = 1; //lof算法，大于1 表示离群 ， 小于1 表示在点密集区域，等于1 表示相邻
 
 struct PointWithRange
 {
@@ -39,19 +39,17 @@ bool IsPointNear(std::vector<PointWithRange> neibor_points,PointWithRange origin
     return true;
 }
 
-
-
 float CalcLocalReachableDensity(std::vector<PointWithRange> neibor_points,PointWithRange origin)
 {
     std::vector<std::pair<PointWithRange,float>> neibor_info(neighbor_size);
-    std::vector<float > distance_info;
+    std::vector<float > distance_info(neighbor_size);
 
     for(size_t i = 0 ; i < neibor_points.size(); i ++)
     {
         std::pair<PointWithRange,float> neibor_with_distance;
         neibor_with_distance.second = distance(neibor_points[i].pt,origin.pt);
         neibor_info[i] = neibor_with_distance;
-        distance_info.push_back(neibor_with_distance.second);
+        distance_info[i] = neibor_with_distance.second;
     }
 
     //求此时origin 点的k_distance; //周围邻居距离它的最大距离
@@ -66,19 +64,21 @@ float CalcLocalReachableDensity(std::vector<PointWithRange> neibor_points,PointW
     }
 
     float sum_reachable_dist = std::accumulate(reachable_distance.begin(),reachable_distance.end(),0);
+    std::cout<<"local reachable density:"<<neighbor_size / sum_reachable_dist<<std::endl;
     return neighbor_size / sum_reachable_dist;
 }
 
 float CalLocalOutlierFactor(std::vector<PointWithRange> neibor_points,PointWithRange origin)
 {
     float origin_lrd = CalcLocalReachableDensity(neibor_points,origin);
-    std::vector<float> neibour_lrd;
+    std::vector<float> neibour_lrd(neighbor_size);
     for(size_t  i= 0; i < neighbor_size; i++)
     {
         neibour_lrd[i] = CalcLocalReachableDensity(neibor_points, neibor_points[i]);
     }
     float sum_neibor_lrd = std::accumulate(neibour_lrd.begin(),neibour_lrd.end(),0);
     float lof = sum_neibor_lrd/neighbor_size / origin_lrd;
+    std::cout<<"final lof value:"<<lof<<std::endl;
     return lof;
 }
 
@@ -88,8 +88,10 @@ bool IsPointInTorance(std::vector<PointWithRange> neibor_points,PointWithRange o
    float points_density =  CalLocalOutlierFactor(neibor_points,origin);
     if(points_density > density_threshold)
     {
+        std::cout<<"origin point is local outlier !"<<std::endl;
         return false;
     }
+    std::cout<<"origin point is inlier!"<<std::endl;
     return true;
 }
 
@@ -133,5 +135,13 @@ std::vector<bool> Segmentation(std::vector<PointWithRange> pc)
 
 int main()
 {
-
+    std::vector<PointWithRange> neibor(neighbor_size);
+    neibor[0] = {0.1,cv::Point2f(1,1),};
+    neibor[1] = {0.1,cv::Point2f(1,2),};
+    neibor[2] = {0.1,cv::Point2f(1.2,3),};
+   //neibor[3] = {0.1,cv::Point2f(0.8,4),};
+   // neibor[4] = {0.1,cv::Point2f(1,5),};
+   //neibor[5] = {0.1,cv::Point2f(2.1,6),};
+    PointWithRange origin = {0.1,cv::Point2f (4,8)};
+    CalLocalOutlierFactor(neibor,origin);
 }
