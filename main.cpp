@@ -1,8 +1,13 @@
+//一个并不清晰的参考文档：
+//https://blog.csdn.net/wangyibo0201/article/details/51705966
+//https://zhuanlan.zhihu.com/p/166369230
+
 #include <iostream>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <cmath>
 #include <numeric>
+
 using PointCloud  = std::vector<cv::Point2f>;
 
 int neighbor_size = 3; //邻居数量
@@ -41,15 +46,15 @@ bool IsPointNear(std::vector<PointWithRange> neibor_points,PointWithRange origin
 
 float CalcLocalReachableDensity(std::vector<PointWithRange> neibor_points,PointWithRange origin)
 {
-    std::vector<std::pair<PointWithRange,float>> neibor_info(neighbor_size);
+    std::vector<std::pair<PointWithRange,float>> neighbor_info(neighbor_size);
     std::vector<float > distance_info(neighbor_size);
 
     for(size_t i = 0 ; i < neibor_points.size(); i ++)
     {
-        std::pair<PointWithRange,float> neibor_with_distance;
-        neibor_with_distance.second = distance(neibor_points[i].pt,origin.pt);
-        neibor_info[i] = neibor_with_distance;
-        distance_info[i] = neibor_with_distance.second;
+        std::pair<PointWithRange,float> neighbor_with_distance;
+        neighbor_with_distance.second = distance(neibor_points[i].pt, origin.pt);
+        neighbor_info[i] = neighbor_with_distance;
+        distance_info[i] = neighbor_with_distance.second;
     }
 
     //求此时origin 点的k_distance; //周围邻居距离它的最大距离
@@ -60,7 +65,7 @@ float CalcLocalReachableDensity(std::vector<PointWithRange> neibor_points,PointW
     std::vector<float > reachable_distance(neighbor_size);
     for(size_t i = 0 ; i < neighbor_size;i++)
     {
-        reachable_distance[i] = std::max(k_distance,neibor_info[i].second);
+        reachable_distance[i] = std::max(k_distance, neighbor_info[i].second);
     }
 
     float sum_reachable_dist = std::accumulate(reachable_distance.begin(),reachable_distance.end(),0);
@@ -70,13 +75,16 @@ float CalcLocalReachableDensity(std::vector<PointWithRange> neibor_points,PointW
 
 float CalLocalOutlierFactor(std::vector<PointWithRange> neibor_points,PointWithRange origin)
 {
+    //目标点的local reachable density
     float origin_lrd = CalcLocalReachableDensity(neibor_points,origin);
-    std::vector<float> neibour_lrd(neighbor_size);
+
+    //邻居点的local reachable density
+    std::vector<float> neighbor_lrd(neighbor_size);
     for(size_t  i= 0; i < neighbor_size; i++)
     {
-        neibour_lrd[i] = CalcLocalReachableDensity(neibor_points, neibor_points[i]);
+        neighbor_lrd[i] = CalcLocalReachableDensity(neibor_points, neibor_points[i]);
     }
-    float sum_neibor_lrd = std::accumulate(neibour_lrd.begin(),neibour_lrd.end(),0);
+    float sum_neibor_lrd = std::accumulate(neighbor_lrd.begin(), neighbor_lrd.end(), 0);
     float lof = sum_neibor_lrd/neighbor_size / origin_lrd;
     std::cout<<"final lof value:"<<lof<<std::endl;
     return lof;
